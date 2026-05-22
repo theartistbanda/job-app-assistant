@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Job App Assistant</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+
+    <!-- Stats bar -->
+    <div class="stats-bar">
+        <div class="stat-card">
+            <span class="stat-label">Applications drafted</span>
+            <span class="stat-value" id="appCount">0</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-label">Session time saved</span>
+            <span class="stat-value" id="timeSaved">0 min</span>
+        </div>
+    </div>
+
+    <!-- Step 1 -->
+    <div class="card">
+        <p class="step-label">Step 1 — paste job description or URL</p>
+        <textarea id="jobDesc"
+            placeholder="Paste the full job description here, or the job URL if you've already loaded it into Claude..."></textarea>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="card">
+        <p class="step-label">Step 2 — what do you need?</p>
+        <div class="checkbox-grid">
+            <label class="checkbox-item">
+                <input type="checkbox" id="chk-cover" checked />
+                <span>Cover letter</span>
+            </label>
+            <label class="checkbox-item">
+                <input type="checkbox" id="chk-qa" checked />
+                <span>Application Q&A</span>
+            </label>
+            <label class="checkbox-item">
+                <input type="checkbox" id="chk-contact" checked />
+                <span>Contact research</span>
+            </label>
+            <label class="checkbox-item">
+                <input type="checkbox" id="chk-fit" checked />
+                <span>Fit score + flags</span>
+            </label>
+        </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="card">
+        <p class="step-label">Step 3 — upload your resume</p>
+        <div class="upload-zone" id="uploadZone">
+            <input type="file" id="resumeFile" accept=".pdf,.doc,.docx,.txt" hidden />
+            <div class="upload-inner" id="uploadInner">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                </svg>
+                <span id="uploadLabel">Click to upload resume or drag & drop</span>
+                <span class="upload-hint">PDF, DOC, DOCX or TXT</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 4 -->
+    <div class="card">
+        <p class="step-label">Step 4 — any extra context?</p>
+        <textarea id="extraContext"
+            placeholder="Optional: any specific angle, project to highlight, or question you want answered in the cover letter..."></textarea>
+    </div>
+
+    <!-- Generate button -->
+    <button class="generate-btn" id="generateBtn" onclick="generate()">
+        Generate application package ↗
+    </button>
+
+    <!-- Result -->
+    <div class="result-card" id="resultCard" style="display:none;">
+        <p class="step-label">Result</p>
+        <div id="result"></div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
