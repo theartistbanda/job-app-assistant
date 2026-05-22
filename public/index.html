@@ -10,80 +10,231 @@
 
 <body>
 
-    <!-- Stats bar -->
-    <div class="stats-bar">
-        <div class="stat-card">
-            <span class="stat-label">Applications drafted</span>
-            <span class="stat-value" id="appCount">0</span>
+    <!-- ═══════════════════════════════
+       LEFT SIDEBAR — History
+  ════════════════════════════════ -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-top">
+            <p class="sidebar-title">History</p>
+            <button class="new-btn" id="newBtnSidebar" onclick="startNew()">+ New</button>
         </div>
-        <div class="stat-card">
-            <span class="stat-label">Session time saved</span>
-            <span class="stat-value" id="timeSaved">0 min</span>
+        <div class="sidebar-search">
+            <input type="text" id="searchInput" placeholder="Search..." oninput="searchHistory(this.value)" />
         </div>
-    </div>
-
-    <!-- Step 1 -->
-    <div class="card">
-        <p class="step-label">Step 1 — paste job description or URL</p>
-        <textarea id="jobDesc"
-            placeholder="Paste the full job description here, or the job URL if you've already loaded it into Claude..."></textarea>
-    </div>
-
-    <!-- Step 2 -->
-    <div class="card">
-        <p class="step-label">Step 2 — what do you need?</p>
-        <div class="checkbox-grid">
-            <label class="checkbox-item">
-                <input type="checkbox" id="chk-cover" checked />
-                <span>Cover letter</span>
-            </label>
-            <label class="checkbox-item">
-                <input type="checkbox" id="chk-qa" checked />
-                <span>Application Q&A</span>
-            </label>
-            <label class="checkbox-item">
-                <input type="checkbox" id="chk-contact" checked />
-                <span>Contact research</span>
-            </label>
-            <label class="checkbox-item">
-                <input type="checkbox" id="chk-fit" checked />
-                <span>Fit score + flags</span>
-            </label>
+        <div class="history-list" id="historyList">
+            <p class="history-empty" id="historyEmpty">No applications yet.</p>
         </div>
-    </div>
+    </aside>
 
-    <!-- Step 3 -->
-    <div class="card">
-        <p class="step-label">Step 3 — upload your resume</p>
-        <div class="upload-zone" id="uploadZone">
-            <input type="file" id="resumeFile" accept=".pdf,.doc,.docx,.txt" hidden />
-            <div class="upload-inner" id="uploadInner">
-                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round"
-                        d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-                </svg>
-                <span id="uploadLabel">Click to upload resume or drag & drop</span>
-                <span class="upload-hint">PDF, DOC, DOCX or TXT</span>
+    <!-- Sidebar overlay (mobile) -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+    <!-- ═══════════════════════════════
+       CENTRE — Results / Empty state
+  ════════════════════════════════ -->
+    <main class="centre" id="centre">
+
+        <!-- Top bar -->
+        <header class="topbar">
+            <button class="hamburger" id="hamburger" onclick="toggleSidebar()" aria-label="Toggle history">
+                <span></span><span></span><span></span>
+            </button>
+            <p class="topbar-title" id="topbarTitle">Job App Assistant</p>
+            <button class="topbar-pdf-btn" id="topbarPdfBtn" onclick="downloadPDF()" style="display:none;">Download
+                PDF</button>
+            <button class="topbar-new-btn" id="topbarNewBtn" onclick="startNew()">New +</button>
+        </header>
+
+        <!-- Empty state -->
+        <div class="empty-state" id="emptyState">
+            <div class="empty-inner">
+                <p class="empty-heading">Job App Assistant</p>
+                <p class="empty-sub">Paste a job description and get a full application package in seconds.</p>
+                <div class="feature-pills">
+                    <span class="pill">Cover letter tailored to the role</span>
+                    <span class="pill">Fit score with honest flags</span>
+                    <span class="pill">Application Q&amp;A answers</span>
+                    <span class="pill">Contact outreach template</span>
+                </div>
+                <p class="empty-cta">Paste a job description in the panel →</p>
             </div>
         </div>
-    </div>
 
-    <!-- Step 4 -->
-    <div class="card">
-        <p class="step-label">Step 4 — any extra context?</p>
-        <textarea id="extraContext"
-            placeholder="Optional: any specific angle, project to highlight, or question you want answered in the cover letter..."></textarea>
-    </div>
+        <!-- Bento results -->
+        <div class="bento-wrap" id="bentoWrap" style="display:none;">
 
-    <!-- Generate button -->
-    <button class="generate-btn" id="generateBtn" onclick="generate()">
-        Generate application package ↗
-    </button>
+            <div class="bento-meta" id="bentoMeta"></div>
 
-    <!-- Result -->
-    <div class="result-card" id="resultCard" style="display:none;">
-        <p class="step-label">Result</p>
-        <div id="result"></div>
+            <!-- Fit score -->
+            <div class="bento-tile tile-fit" id="tileFit" style="display:none;">
+                <div class="tile-header">
+                    <span class="tile-label">Fit score</span>
+                    <button class="copy-btn" onclick="copyTile('fit')">Copy</button>
+                </div>
+                <div class="fit-row">
+                    <div class="score-circle" id="scoreCircle">—</div>
+                    <div class="fit-detail">
+                        <p class="fit-summary" id="fitSummary"></p>
+                        <div class="flags-grid">
+                            <div>
+                                <p class="flag-head green">Green flags</p>
+                                <ul id="greenFlags"></ul>
+                            </div>
+                            <div>
+                                <p class="flag-head red">Watch out</p>
+                                <ul id="redFlags"></ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cover + QA row -->
+            <div class="bento-row">
+                <div class="bento-tile tile-cover" id="tileCover" style="display:none;">
+                    <div class="tile-header">
+                        <span class="tile-label">Cover letter</span>
+                        <button class="copy-btn" onclick="copyTile('cover')">Copy</button>
+                    </div>
+                    <div class="tile-body" id="coverBody"></div>
+                </div>
+
+                <div class="bento-tile tile-qa" id="tileQA" style="display:none;">
+                    <div class="tile-header">
+                        <span class="tile-label">Application Q&amp;A</span>
+                        <button class="copy-btn" onclick="copyTile('qa')">Copy</button>
+                    </div>
+                    <div class="tile-body" id="qaBody"></div>
+                </div>
+            </div>
+
+            <!-- Contact -->
+            <div class="bento-tile tile-contact" id="tileContact" style="display:none;">
+                <div class="tile-header">
+                    <span class="tile-label">Contact research</span>
+                    <button class="copy-btn" onclick="copyTile('contact')">Copy</button>
+                </div>
+                <div class="contact-grid">
+                    <div>
+                        <p class="contact-sub">Who to find</p>
+                        <p class="contact-role" id="contactRole"></p>
+                        <p class="contact-desc" id="contactDesc"></p>
+                    </div>
+                    <div>
+                        <p class="contact-sub">Outreach template</p>
+                        <p class="contact-outreach" id="contactOutreach"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PDF -->
+            <button class="pdf-btn" onclick="downloadPDF()">Download as PDF</button>
+
+        </div>
+    </main>
+
+    <!-- Input panel overlay (mobile tap-outside to close) -->
+    <div class="input-overlay" id="inputOverlay" onclick="closeInputPanel()"></div>
+
+    <!-- ═══════════════════════════════
+       RIGHT PANEL — Input
+  ════════════════════════════════ -->
+    <aside class="input-panel" id="inputPanel">
+
+        <!-- Mobile close button — sits above the sheet -->
+        <button class="sheet-close-btn" id="sheetCloseBtn" onclick="closeInputPanel()"
+            aria-label="Close input panel">✕</button>
+
+        <!-- Scrollable form -->
+        <div class="input-scroll">
+
+            <div class="input-section">
+                <p class="input-label">Step 1 — job description or URL</p>
+                <textarea id="jobDesc" placeholder="Paste the full job description here..."></textarea>
+            </div>
+
+            <div class="input-section">
+                <p class="input-label">Step 2 — what do you need?</p>
+                <div class="checkbox-grid">
+                    <label class="checkbox-item">
+                        <input type="checkbox" id="chk-fit" checked /><span>Fit score</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" id="chk-cover" checked /><span>Cover letter</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" id="chk-qa" checked /><span>Q&amp;A</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" id="chk-contact" checked /><span>Contact</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="input-section">
+                <p class="input-label">Step 3 — resume (optional)</p>
+                <div class="upload-zone" id="uploadZone">
+                    <input type="file" id="resumeFile" accept=".pdf,.doc,.docx,.txt" hidden />
+                    <div class="upload-inner">
+                        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                        </svg>
+                        <span id="uploadLabel">Click or drag &amp; drop</span>
+                        <span class="upload-hint">PDF, DOC, DOCX, TXT</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="input-section">
+                <p class="input-label">Step 4 — extra context</p>
+                <textarea id="extraContext" placeholder="Optional: angle to highlight, project to mention..."
+                    style="min-height:72px;"></textarea>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-row">
+                <div class="stat">
+                    <span class="stat-val" id="appCount">0</span>
+                    <span class="stat-lbl">drafted</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-val" id="freeLeft">3</span>
+                    <span class="stat-lbl">free left</span>
+                </div>
+            </div>
+
+        </div><!-- /input-scroll -->
+
+        <!-- Sticky bottom — always visible -->
+        <div class="input-sticky">
+
+            <!-- Progress bar (hidden until generating) -->
+            <div class="progress-wrap" id="progressWrap" style="display:none;">
+                <div class="progress-track">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <p class="progress-label" id="progressLabel">Analysing job description...</p>
+            </div>
+
+            <!-- Upgrade nudge -->
+            <div class="upgrade-nudge" id="upgradeNudge" style="display:none;">
+                <p>3 free generations used this session.</p>
+                <p class="upgrade-sub">Refresh to reset or <a href="#">upgrade for unlimited</a>.</p>
+            </div>
+
+            <button class="generate-btn" id="generateBtn" onclick="generate()">
+                Generate application package ↗
+            </button>
+
+        </div>
+
+    </aside>
+
+    <!-- Mobile bottom bar -->
+    <div class="mobile-bar">
+        <button class="mobile-generate-btn" onclick="generate()">Generate ↗</button>
     </div>
 
     <script src="app.js"></script>

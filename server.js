@@ -13,7 +13,6 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 app.post('/api/generate', async (req, res) => {
     const { jobDescription, extraContext, resumeText, needs } = req.body;
 
-    // Build a prompt based on what the user checked
     const sections = needs && needs.length > 0 ? needs : ['Cover letter'];
 
     const resumeSection = resumeText
@@ -24,23 +23,29 @@ app.post('/api/generate', async (req, res) => {
         ? `\n\nEXTRA CONTEXT FROM CANDIDATE:\n${extraContext}`
         : '';
 
-    const prompt = `You are a professional job application assistant.
+    const prompt = `You are a professional job application assistant. Return ONLY a valid JSON object with no markdown, no code fences, no extra text.
 
 JOB DESCRIPTION:
 ${jobDescription}
 ${resumeSection}
 ${extraSection}
 
-Please generate the following sections, clearly separated with headings:
-${sections.map((s, i) => `${i + 1}. ${s}`).join('\n')}
+Generate the requested sections and return them as a JSON object with exactly these keys (only include keys for requested sections):
+- "fitScore": object with "score" (number 1-10), "summary" (one sentence), "greenFlags" (array of 2-3 strings), "redFlags" (array of 1-2 strings)
+- "coverLetter": string with the full cover letter (use \\n for line breaks)
+- "applicationQA": array of objects, each with "question" (string) and "answer" (string), 3 items
+- "contactResearch": object with "targetRole" (string), "targetDescription" (string), "outreachTemplate" (string)
 
-Guidelines:
-- Cover letter: 3 paragraphs, specific to the job, warm but professional tone
-- Application Q&A: anticipate 3 likely application questions with strong answers
-- Contact research: suggest what type of person to find at this company and a cold outreach message template
-- Fit score + flags: give a score out of 10 with 2-3 green flags and 1-2 things to address
+Requested sections: ${sections.join(', ')}
 
-Be specific, not generic. Reference details from the job description.`;
+Rules:
+- Be specific to this exact job description, not generic
+- Cover letter: 3 paragraphs, warm but professional
+- Fit score: honest, reference specific job requirements
+- Q&A: anticipate real application form questions
+- Contact: realistic outreach for this specific company/role
+
+Return ONLY the JSON object. No explanation, no markdown.`;
 
     try {
         const response = await client.messages.create({
@@ -49,7 +54,17 @@ Be specific, not generic. Reference details from the job description.`;
             messages: [{ role: 'user', content: prompt }]
         });
 
-        res.json({ result: response.content[0].text });
+        const raw = response.content[0].text.trim();
+        const cleaned = raw.replace(/^```json\n?/, '').replace(/^```\n?/, '').replace(/\n?```$/, '');
+
+        let parsed;
+        try {
+            parsed = JSON.parse(cleaned);
+        } catch (parseErr) {
+            return res.status(500).json({ error: 'Failed to parse AI response. Please try again.' });
+        }
+
+        res.json({ result: parsed });
 
     } catch (err) {
         console.error(err);
