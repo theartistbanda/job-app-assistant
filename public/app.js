@@ -2,6 +2,23 @@
 const FREE_LIMIT = 3;
 const STORAGE_KEY = 'jobapp_history';
 
+
+// ── Safe DOM helper — never crashes if an element is missing ──
+function el(id) {
+    const node = document.getElementById(id);
+    if (node) return node;
+    // Return a dummy object so .style.display = x never throws
+    return {
+        style: new Proxy({}, { set: () => true, get: () => '' }),
+        classList: { add: () => { }, remove: () => { }, toggle: () => { }, contains: () => false },
+        get textContent() { return ''; }, set textContent(v) { },
+        get innerHTML() { return ''; }, set innerHTML(v) { },
+        get value() { return ''; },
+        appendChild: () => { },
+        querySelectorAll: () => []
+    };
+}
+
 // ── State ──
 let resumeText = '';
 let generationCount = parseInt(sessionStorage.getItem('genCount') || '0');
@@ -24,22 +41,22 @@ function loadOnStart() {
 
 // ── Sidebar (desktop + mobile) ──
 function toggleSidebar() {
-    const sidebar = document.getElementById('sidebar');
-    const overlay = document.getElementById('sidebarOverlay');
+    const sidebar = el('sidebar');
+    const overlay = el('sidebarOverlay');
     sidebar.classList.toggle('open');
     overlay.classList.toggle('visible');
 }
 
 function closeSidebar() {
-    document.getElementById('sidebar').classList.remove('open');
-    document.getElementById('sidebarOverlay').classList.remove('visible');
+    el('sidebar').classList.remove('open');
+    el('sidebarOverlay').classList.remove('visible');
 }
 
 // ── Mobile input sheet ──
 function toggleInputPanel() {
-    const panel = document.getElementById('inputPanel');
-    const overlay = document.getElementById('inputOverlay');
-    const closeBtn = document.getElementById('sheetCloseBtn');
+    const panel = el('inputPanel');
+    const overlay = el('inputOverlay');
+    const closeBtn = el('sheetCloseBtn');
     const isOpen = panel.classList.contains('open');
     if (isOpen) {
         panel.classList.remove('open');
@@ -53,48 +70,48 @@ function toggleInputPanel() {
 }
 
 function closeInputPanel() {
-    document.getElementById('inputPanel').classList.remove('open');
-    document.getElementById('inputOverlay').classList.remove('visible');
-    document.getElementById('sheetCloseBtn').classList.remove('visible');
+    el('inputPanel').classList.remove('open');
+    el('inputOverlay').classList.remove('visible');
+    el('sheetCloseBtn').classList.remove('visible');
 }
 
 // ── New application ──
 function startNew() {
     // Clear form
-    document.getElementById('jobDesc').value = '';
-    document.getElementById('extraContext').value = '';
-    document.getElementById('chk-cover').checked = true;
-    document.getElementById('chk-qa').checked = true;
-    document.getElementById('chk-contact').checked = true;
-    document.getElementById('chk-fit').checked = true;
+    el('jobDesc').value = '';
+    el('extraContext').value = '';
+    el('chk-cover').checked = true;
+    el('chk-qa').checked = true;
+    el('chk-contact').checked = true;
+    el('chk-fit').checked = true;
     uploadZone.classList.remove('has-file');
-    document.getElementById('uploadLabel').textContent = 'Click or drag & drop';
+    el('uploadLabel').textContent = 'Click or drag & drop';
     resumeText = '';
     currentResult = null;
     activeHistoryId = null;
 
     // Show empty state
-    document.getElementById('emptyState').style.display = 'flex';
-    document.getElementById('bentoWrap').style.display = 'none';
-    document.getElementById('topbarTitle').textContent = 'Job App Assistant';
-    document.getElementById('topbarPdfBtn').style.display = 'none';
+    el('emptyState').style.display = 'flex';
+    el('bentoWrap').style.display = 'none';
+    el('topbarTitle').textContent = 'Job App Assistant';
+    el('topbarPdfBtn').style.display = 'none';
 
     // Clear active history highlight
     document.querySelectorAll('.history-item').forEach(i => i.classList.remove('active'));
 
     // On mobile — open input sheet
     if (window.innerWidth <= 860) {
-        document.getElementById('inputPanel').classList.add('open');
-        document.getElementById('inputOverlay').classList.add('visible');
-        document.getElementById('sheetCloseBtn').classList.add('visible');
+        el('inputPanel').classList.add('open');
+        el('inputOverlay').classList.add('visible');
+        el('sheetCloseBtn').classList.add('visible');
     }
 
     closeSidebar();
 }
 
 // ── Resume upload ──
-const uploadZone = document.getElementById('uploadZone');
-const resumeFile = document.getElementById('resumeFile');
+const uploadZone = el('uploadZone');
+const resumeFile = el('resumeFile');
 
 uploadZone.addEventListener('click', () => resumeFile.click());
 
@@ -117,7 +134,7 @@ uploadZone.addEventListener('drop', (e) => {
 
 function handleFile(file) {
     uploadZone.classList.add('has-file');
-    document.getElementById('uploadLabel').textContent = file.name;
+    el('uploadLabel').textContent = file.name;
     if (file.type === 'text/plain') {
         const reader = new FileReader();
         reader.onload = (e) => { resumeText = e.target.result; };
@@ -138,9 +155,9 @@ const progressSteps = [
 ];
 
 function startProgress() {
-    const wrap = document.getElementById('progressWrap');
-    const fill = document.getElementById('progressFill');
-    const label = document.getElementById('progressLabel');
+    const wrap = el('progressWrap');
+    const fill = el('progressFill');
+    const label = el('progressLabel');
     wrap.style.display = 'flex';
     fill.style.width = '0%';
     let step = 0;
@@ -155,19 +172,19 @@ function startProgress() {
 
 function finishProgress() {
     clearInterval(progressInterval);
-    const fill = document.getElementById('progressFill');
-    const label = document.getElementById('progressLabel');
+    const fill = el('progressFill');
+    const label = el('progressLabel');
     fill.style.width = '100%';
     label.textContent = 'Done!';
     setTimeout(() => {
-        document.getElementById('progressWrap').style.display = 'none';
+        el('progressWrap').style.display = 'none';
         fill.style.width = '0%';
     }, 900);
 }
 
 // ── Generate ──
 async function generate() {
-    const jobDescription = document.getElementById('jobDesc').value.trim();
+    const jobDescription = el('jobDesc').value.trim();
     if (!jobDescription) {
         alert('Please paste a job description first.');
         return;
@@ -178,14 +195,14 @@ async function generate() {
         return;
     }
 
-    const extraContext = document.getElementById('extraContext').value.trim();
+    const extraContext = el('extraContext').value.trim();
     const needs = [];
-    if (document.getElementById('chk-fit').checked) needs.push('Fit score + flags');
-    if (document.getElementById('chk-cover').checked) needs.push('Cover letter');
-    if (document.getElementById('chk-qa').checked) needs.push('Application Q&A');
-    if (document.getElementById('chk-contact').checked) needs.push('Contact research');
+    if (el('chk-fit').checked) needs.push('Fit score + flags');
+    if (el('chk-cover').checked) needs.push('Cover letter');
+    if (el('chk-qa').checked) needs.push('Application Q&A');
+    if (el('chk-contact').checked) needs.push('Contact research');
 
-    const btn = document.getElementById('generateBtn');
+    const btn = el('generateBtn');
     btn.disabled = true;
     btn.textContent = 'Generating…';
 
@@ -193,8 +210,8 @@ async function generate() {
     closeInputPanel();
 
     // Hide empty state while generating
-    document.getElementById('emptyState').style.display = 'none';
-    document.getElementById('bentoWrap').style.display = 'none';
+    el('emptyState').style.display = 'none';
+    el('bentoWrap').style.display = 'none';
 
     startProgress();
 
@@ -225,12 +242,12 @@ async function generate() {
         generationCount++;
         sessionStorage.setItem('genCount', generationCount);
         updateFreeLeft();
-        document.getElementById('appCount').textContent =
-            parseInt(document.getElementById('appCount').textContent) + 1;
+        el('appCount').textContent =
+            parseInt(el('appCount').textContent) + 1;
 
     } catch (err) {
         finishProgress();
-        document.getElementById('emptyState').style.display = 'flex';
+        el('emptyState').style.display = 'flex';
         alert('Error: ' + err.message);
     } finally {
         btn.disabled = false;
@@ -241,37 +258,37 @@ async function generate() {
 
 // ── Render bento ──
 function renderBento(result, entry) {
-    const wrap = document.getElementById('bentoWrap');
+    const wrap = el('bentoWrap');
     wrap.style.display = 'flex';
-    document.getElementById('emptyState').style.display = 'none';
-    document.getElementById('topbarPdfBtn').style.display = 'inline-block';
+    el('emptyState').style.display = 'none';
+    el('topbarPdfBtn').style.display = 'inline-block';
     // topbar-new-btn is CSS-controlled (display:none on desktop, shown on mobile via media query)
 
     // Meta bar
-    const meta = document.getElementById('bentoMeta');
+    const meta = el('bentoMeta');
     if (entry) {
         const scoreText = result.fitScore ? ` · ${result.fitScore.score}/10` : '';
         meta.textContent = `${entry.company}${scoreText} · ${entry.time}`;
-        document.getElementById('topbarTitle').textContent = entry.company;
+        el('topbarTitle').textContent = entry.company;
     }
 
     // Fit score
     if (result.fitScore) {
-        const tile = document.getElementById('tileFit');
+        const tile = el('tileFit');
         tile.style.display = 'block';
         const score = result.fitScore.score;
-        const circle = document.getElementById('scoreCircle');
+        const circle = el('scoreCircle');
         circle.textContent = score + '/10';
         circle.className = 'score-circle ' + (score >= 7 ? 'high' : score >= 5 ? 'mid' : 'low');
-        document.getElementById('fitSummary').textContent = result.fitScore.summary || '';
+        el('fitSummary').textContent = result.fitScore.summary || '';
 
-        const gl = document.getElementById('greenFlags');
+        const gl = el('greenFlags');
         gl.innerHTML = '';
         (result.fitScore.greenFlags || []).forEach(f => {
             const li = document.createElement('li'); li.textContent = f; gl.appendChild(li);
         });
 
-        const rl = document.getElementById('redFlags');
+        const rl = el('redFlags');
         rl.innerHTML = '';
         (result.fitScore.redFlags || []).forEach(f => {
             const li = document.createElement('li'); li.textContent = f; rl.appendChild(li);
@@ -280,14 +297,14 @@ function renderBento(result, entry) {
 
     // Cover letter
     if (result.coverLetter) {
-        document.getElementById('tileCover').style.display = 'block';
-        document.getElementById('coverBody').textContent = result.coverLetter;
+        el('tileCover').style.display = 'block';
+        el('coverBody').textContent = result.coverLetter;
     }
 
     // Q&A
     if (result.applicationQA) {
-        document.getElementById('tileQA').style.display = 'block';
-        const body = document.getElementById('qaBody');
+        el('tileQA').style.display = 'block';
+        const body = el('qaBody');
         body.innerHTML = '';
         result.applicationQA.forEach(item => {
             const div = document.createElement('div');
@@ -299,10 +316,10 @@ function renderBento(result, entry) {
 
     // Contact
     if (result.contactResearch) {
-        document.getElementById('tileContact').style.display = 'block';
-        document.getElementById('contactRole').textContent = result.contactResearch.targetRole || '';
-        document.getElementById('contactDesc').textContent = result.contactResearch.targetDescription || '';
-        document.getElementById('contactOutreach').textContent = result.contactResearch.outreachTemplate || '';
+        el('tileContact').style.display = 'block';
+        el('contactRole').textContent = result.contactResearch.targetRole || '';
+        el('contactDesc').textContent = result.contactResearch.targetDescription || '';
+        el('contactOutreach').textContent = result.contactResearch.outreachTemplate || '';
     }
 
     wrap.scrollTop = 0;
@@ -345,13 +362,13 @@ function downloadPDF() { window.print(); }
 // ── Free tier ──
 function updateFreeLeft() {
     const left = Math.max(0, FREE_LIMIT - generationCount);
-    document.getElementById('freeLeft').textContent = left;
+    el('freeLeft').textContent = left;
     if (left === 0) showUpgradeNudge();
 }
 
 function showUpgradeNudge() {
-    document.getElementById('upgradeNudge').style.display = 'block';
-    document.getElementById('generateBtn').style.display = 'none';
+    el('upgradeNudge').style.display = 'block';
+    el('generateBtn').style.display = 'none';
 }
 
 // ── History ──
@@ -400,8 +417,8 @@ function groupByDate(history) {
 
 function renderHistory() {
     const history = getHistory();
-    const list = document.getElementById('historyList');
-    const empty = document.getElementById('historyEmpty');
+    const list = el('historyList');
+    const empty = el('historyEmpty');
 
     if (history.length === 0) {
         list.innerHTML = '';
@@ -475,9 +492,9 @@ function clearHistory() {
     activeHistoryId = null;
     currentResult = null;
     renderHistory();
-    document.getElementById('emptyState').style.display = 'flex';
-    document.getElementById('bentoWrap').style.display = 'none';
-    document.getElementById('topbarTitle').textContent = 'Job App Assistant';
+    el('emptyState').style.display = 'flex';
+    el('bentoWrap').style.display = 'none';
+    el('topbarTitle').textContent = 'Job App Assistant';
 }
 
 // ── Mobile bar button wiring ──
