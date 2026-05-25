@@ -132,15 +132,69 @@ uploadZone.addEventListener('drop', (e) => {
     if (file) handleFile(file);
 });
 
-function handleFile(file) {
+async function handleFile(file) {
+    // Show filename immediately so user sees something happened
     uploadZone.classList.add('has-file');
     el('uploadLabel').textContent = file.name;
+
     if (file.type === 'text/plain') {
         const reader = new FileReader();
         reader.onload = (e) => { resumeText = e.target.result; };
+        reader.onerror = () => {
+            el('uploadLabel').textContent = 'Could not read file — try again';
+            uploadZone.classList.remove('has-file');
+        };
         reader.readAsText(file);
+
+    } else if (file.type === 'application/pdf') {
+        // Loading state
+        el('uploadLabel').textContent = 'Reading PDF...';
+
+        try {
+            // Load PDF.js from CDN
+            if (!window.pdfjsLib) {
+                await new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+                    script.onload = resolve;
+                    script.onerror = reject;
+                    document.head.appendChild(script);
+                });
+                window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+                    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            }
+
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            let fullText = '';
+
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const content = await page.getTextContent();
+                fullText += content.items.map(item => item.str).join(' ') + '\n';
+            }
+
+            resumeText = fullText.trim();
+
+            if (!resumeText) {
+                el('uploadLabel').textContent = 'PDF has no readable text — try a .txt or .docx';
+                uploadZone.classList.remove('has-file');
+                return;
+            }
+
+            el('uploadLabel').textContent = `${file.name} · ${pdf.numPages} page${pdf.numPages > 1 ? 's' : ''} read`;
+
+        } catch (err) {
+            console.error('PDF read error:', err);
+            el('uploadLabel').textContent = 'Could not read PDF — try .txt instead';
+            uploadZone.classList.remove('has-file');
+            resumeText = '';
+        }
+
     } else {
-        resumeText = `[Resume attached: ${file.name}]`;
+        // DOC, DOCX — can't parse in browser, send filename as context
+        resumeText = `[Resume attached: ${file.name} — paste text manually for best results]`;
+        el('uploadLabel').textContent = file.name + ' (text not extracted)';
     }
 }
 
@@ -234,6 +288,17 @@ async function generate() {
 
         // Save + render
         const entry = saveToHistory(jobDescription, currentResult);
+
+        // If Claude returned a company name directly, use it — overrides any regex fallback
+        if (currentResult.company && currentResult.company !== 'Application') {
+            const label = currentResult.role
+                ? `${currentResult.company} — ${currentResult.role}`.slice(0, 40)
+                : currentResult.company.slice(0, 40);
+            entry.company = label;
+            const history = getHistory();
+            history[0].company = label;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+        }
         activeHistoryId = entry.id;
         renderHistory();
         renderBento(currentResult, entry);
@@ -270,6 +335,9 @@ function renderBento(result, entry) {
         const scoreText = result.fitScore ? ` · ${result.fitScore.score}/10` : '';
         meta.textContent = `${entry.company}${scoreText} · ${entry.time}`;
         el('topbarTitle').textContent = entry.company;
+    } else if (result.company) {
+        const label = result.role ? `${result.company} — ${result.role}` : result.company;
+        el('topbarTitle').textContent = label.slice(0, 40);
     }
 
     // Fit score
@@ -396,9 +464,28 @@ function saveToHistory(jobDescription, result) {
 }
 
 function extractCompany(text) {
-    const short = text.slice(0, 300);
-    const match = short.match(/at\s+([A-Z][a-zA-Z0-9\s&]+?)[\s,\n]/);
-    return match ? match[1].trim().slice(0, 28) : 'Application';
+    const short = text.slice(0, 600);
+
+    // Pattern 1: "Company: Monzo" or "Organisation: X" or "Employer: X"
+    const p1 = short.match(/(?:company|organisation|organization|employer|client|brand)[:\s]+([A-Z][a-zA-Z0-9\s&.,'-]{1,30}?)(?:\n|,|\.|–|-|$)/im);
+    if (p1) return p1[1].trim().slice(0, 28);
+
+    // Pattern 2: "About Monzo" / "About the Company" followed by company name
+    const p2 = short.match(/about\s+(?:the\s+)?(?:company|role|job|us)?[:\s]*\n?\s*([A-Z][a-zA-Z0-9\s&]{2,25}?)(?:\n|is\s|was\s|–)/i);
+    if (p2 && p2[1].toLowerCase() !== 'the' && p2[1].toLowerCase() !== 'us') return p2[1].trim().slice(0, 28);
+
+    // Pattern 3: "at Monzo" / "join Monzo" / "for Monzo"
+    const p3 = short.match(/(?:at|join|for|with)\s+([A-Z][a-zA-Z0-9\s&]{1,22}?)(?:\s*[,.\n!]|\s+(?:as|is|are|we|to|and))/);
+    if (p3) return p3[1].trim().slice(0, 28);
+
+    // Pattern 4: First ALL-CAPS word cluster (many JDs start with company name)
+    const p4 = short.match(/^([A-Z][A-Z0-9\s&]{2,24}?)(?:\n|–|-)/m);
+    if (p4) return p4[1].trim().slice(0, 28);
+
+    // Pattern 5: Ask Claude — pull company from fitScore summary if available
+    // (handled after generation via entry update below)
+
+    return 'Application';
 }
 
 function groupByDate(history) {

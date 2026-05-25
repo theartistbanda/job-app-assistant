@@ -31,6 +31,8 @@ ${resumeSection}
 ${extraSection}
 
 Generate the requested sections and return them as a JSON object with exactly these keys (only include keys for requested sections):
+- "company": string — the company name extracted from the job description (required always, even if other sections are not requested)
+- "role": string — the job title from the job description (required always)
 - "fitScore": object with "score" (number 1-10), "summary" (one sentence), "greenFlags" (array of 2-3 strings), "redFlags" (array of 1-2 strings)
 - "coverLetter": string with the full cover letter (use \\n for line breaks)
 - "applicationQA": array of objects, each with "question" (string) and "answer" (string), 3 items
